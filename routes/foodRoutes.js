@@ -9,16 +9,16 @@ const {
 } = require("../controllers/foodController");
 const validateTokenHandler = require("../middlewares/validateTokenHandler");
 
-router.use(validateTokenHandler);
+// router.use(validateTokenHandler);
 
 router.route("/").get(getFoods);
 
-router.route("/").post(createFood);
+router.route("/").post(validateTokenHandler, createFood);
 
 router.route("/:id").get(getFoodById);
 
-router.route("/:id").put(updateFood);
+router.route("/:id").put(validateTokenHandler, updateFood);
 
-router.route("/:id").delete(deleteFood);
+router.route("/:id").delete(validateTokenHandler, deleteFood);
 
 module.exports = router;

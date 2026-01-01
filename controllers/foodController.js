@@ -4,7 +4,7 @@ const Food = require("../models/foodModel");
 // route GET /api/foods
 // access private
 const getFoods = asyncHandler(async (req, res) => {
-  const foods = await Food.find({ user_id: req.user.id });
+  const foods = await Food.find();
   res.json(foods);
 });
 

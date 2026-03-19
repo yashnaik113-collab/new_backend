@@ -13,9 +13,10 @@ app.use("/api/users", require("./routes/userRoutes"));
 app.use(authmiddleware);
 app.use("/api/orders", require("./routes/orderRoutes"));
 app.use("/api/kitchens", require("./routes/kitchenRoutes"));
+app.use("/api/chefs", require("./routes/chefAuthRoutes"));
 
 app.get("/", (req, res) =>
-  res.json({ success: true, message: "API is running" })
+  res.json({ success: true, message: "API is running" }),
 );
 
 const PORT = process.env.PORT || 5000;

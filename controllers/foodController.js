@@ -12,18 +12,19 @@ const getFoods = asyncHandler(async (req, res) => {
 // route POST /api/foods
 // access private
 const createFood = asyncHandler(async (req, res) => {
-  console.log(req.body);
-  const { name, description, price } = req.body;
-  if (!name || !description || !price) {
-    return res
-      .status(400)
-      .json({ message: "Please provide name, description and price" });
+  const { name, description, price, category } = req.body;
+
+  if (!name || !description || !price || !category) {
+    return res.status(400).json({
+      message: "Please provide name, description, price and category",
+    });
   }
 
   const food = await Food.create({
     name,
     description,
     price,
+    category,
     user_id: req.user.id,
   });
 
@@ -38,7 +39,7 @@ const getFoodById = asyncHandler(async (req, res) => {
   if (!food) {
     return res.status(404).json("Food not found");
   }
-  res.json({ message: `get food for ${req.params.id}` });
+  res.json(food);
 });
 
 // desc update food
@@ -50,16 +51,21 @@ const updateFood = asyncHandler(async (req, res) => {
     return res.status(404).json("Food not found");
   }
 
-  if (food.user_id.toString() !== req.user.id) {
-    return res
-      .status(403)
-      .json({ message: "User not have permision to update other user things" });
+  if (!food.user_id) {
+    return res.status(403).json({ message: "Food has no owner assigned" });
   }
+
+  if (food.user_id.toString() !== req.user.id) {
+    return res.status(403).json({
+      message: "User not have permission to update other user things",
+    });
+  }
+
   const updatedFood = await Food.findByIdAndUpdate(req.params.id, req.body, {
     new: true,
   });
 
-  res.json({ message: `update food for ${req.params.id}` });
+  res.json(updatedFood);
 });
 
 // desc delete food

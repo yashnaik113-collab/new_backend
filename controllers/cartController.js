@@ -187,17 +187,28 @@ const removeItemFromCart = AsyncHandler(async (req, res) => {
 // DELETE /api/carts/:userId
 
 const clearCart = AsyncHandler(async (req, res) => {
-  const { userId } = req.params;
-  if (!mongoose.isValidObjectId(userId))
-    return res.status(400).json({ success: false, message: "Invalid userId" });
-  const cart = await Cart.findOne({ userId });
-  if (!cart)
-    return res.status(404).json({ success: false, message: "Cart not found" });
-  cart.items = [];
-  await cart.save();
-  res.json({ success: true, message: "Cart cleared", data: cart });
-});
+  const userId = req.user.id; // ✅ from JWT token, not params
 
+  // Find cart by userId from token
+  const cart = await Cart.findOne({ userId });
+  if (!cart) {
+    return res.status(404).json({
+      success: false,
+      message: "Cart not found",
+    });
+  }
+
+  // Clear all items
+  cart.items = [];
+
+  await cart.save(); // totalAmount auto-recalculates to 0 via pre-save hook
+
+  res.status(200).json({
+    success: true,
+    message: "Cart cleared",
+    data: cart,
+  });
+});
 module.exports = {
   createcart,
   getcartByUserId,

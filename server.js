@@ -11,10 +11,11 @@ app.use("/api/foods", require("./routes/foodRoutes"));
 app.use("/api/carts", require("./routes/cartRoutes"));
 app.use("/api/users", require("./routes/userRoutes"));
 app.use("/api/admin", require("./routes/adminRoutes"));
-app.use(authmiddleware);
+// app.use(authmiddleware);
 app.use("/api/orders", require("./routes/orderRoutes"));
 app.use("/api/kitchens", require("./routes/kitchenRoutes"));
 app.use("/api/chefs", require("./routes/chefAuthRoutes"));
+app.use("/api/userinfo", require("./routes/userInfoRoutes"));
 
 app.get("/", (req, res) =>
   res.json({ success: true, message: "API is running" }),

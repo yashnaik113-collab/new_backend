@@ -18,45 +18,53 @@ const createcart = AsyncHandler(async (req, res) => {
 // get cart by userId
 // GET /api/carts/:userId
 
-const getcartByUserId = AsyncHandler(async (req, res) => {
-  const { userId } = req.params;
-  if (!mongoose.isValidObjectId(userId))
-    return res.status(400).json({ success: false, message: "Invalid userId" });
-  const cart = await Cart.findOne({ userId }).populate("items.foodId", "name");
-  if (!cart)
-    return res.json({ success: true, data: { items: [], totalAmount: 0 } });
-  res.json({ success: true, data: cart });
-});
+const getcartByUserId = async (req, res) => {
+  try {
+    const cart = await Cart.findOne({ userId: req.user.id }); // from JWT
+    if (!cart) {
+      return res.status(404).json({ message: "Cart not found" });
+    }
+    res.status(200).json(cart);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
 
 // add an item to cart (or increment quantity if exists)
 // POST /api/carts/:userId/add
 // body: { foodId, quantity (optional), addons (optional) }
 
 const addItemToCart = AsyncHandler(async (req, res) => {
-  const { userId } = req.params;
+  const userId = req.user.id; // ✅ from JWT token, not params
+
   const { foodId, quantity = 1, addons = [] } = req.body;
-  if (!mongoose.isValidObjectId(userId) || !mongoose.isValidObjectId(foodId)) {
-    return res
-      .status(400)
-      .json({ success: false, message: "Invalid userId or foodId" });
+
+  // Validate foodId only (userId comes from token, already validated by middleware)
+  if (!mongoose.isValidObjectId(foodId)) {
+    return res.status(400).json({ success: false, message: "Invalid foodId" });
   }
+
   const food = await Food.findById(foodId);
   if (!food)
     return res.status(404).json({ success: false, message: "Food not found" });
+
   let cart = await Cart.findOne({ userId });
   if (!cart) {
     cart = new Cart({ userId, items: [] });
   }
-  // see if item already exists in cart (match by foodId + same addons signature)
+
+  // Check if item already exists in cart (match by foodId)
   const existingIndex = cart.items.findIndex(
-    (it) => it.foodId.toString() === foodId.toString()
+    (it) => it.foodId.toString() === foodId.toString(),
   );
+
   if (existingIndex > -1) {
-    // increment quantity
+    // Increment quantity if item already in cart
     cart.items[existingIndex].quantity += Number(quantity);
-    // optionally update price or name if changed
+    // Keep price in sync with latest food price
     cart.items[existingIndex].price = food.price;
   } else {
+    // Add new item
     cart.items.push({
       foodId,
       name: food.name,
@@ -65,10 +73,14 @@ const addItemToCart = AsyncHandler(async (req, res) => {
       addons,
     });
   }
+
   await cart.save();
-  res
-    .status(201)
-    .json({ success: true, message: "Item added to cart", data: cart });
+
+  res.status(201).json({
+    success: true,
+    message: "Item added to cart",
+    data: cart,
+  });
 });
 
 // update item quantity
@@ -76,52 +88,99 @@ const addItemToCart = AsyncHandler(async (req, res) => {
 // body: { quantity }
 
 const updateItemQuantity = AsyncHandler(async (req, res) => {
-  const { userId, itemId } = req.params;
-  const { quantity } = req.body;
-  if (!mongoose.isValidObjectId(userId) || !mongoose.isValidObjectId(itemId)) {
-    return res
-      .status(400)
-      .json({ success: false, message: "Invalid userId or itemId" });
+  const userId = req.user.id;
+
+  const { itemId, quantity } = req.body;
+
+  // Validate itemId
+  if (!mongoose.isValidObjectId(itemId)) {
+    return res.status(400).json({
+      success: false,
+      message: "Invalid itemId",
+    });
   }
+
+  // Validate quantity
   if (!quantity || Number(quantity) < 1) {
-    return res
-      .status(400)
-      .json({ success: false, message: "Quantity must be at least 1" });
+    return res.status(400).json({
+      success: false,
+      message: "Quantity must be at least 1",
+    });
   }
+
+  // Find cart by userId from token
   const cart = await Cart.findOne({ userId });
-  if (!cart)
-    return res.status(404).json({ success: false, message: "Cart not found" });
+  if (!cart) {
+    return res.status(404).json({
+      success: false,
+      message: "Cart not found",
+    });
+  }
+
+  // Find item inside cart using mongoose subdocument .id() method
   const item = cart.items.id(itemId);
-  if (!item)
-    return res
-      .status(404)
-      .json({ success: false, message: "Item not found in cart" });
+  if (!item) {
+    return res.status(404).json({
+      success: false,
+      message: "Item not found in cart",
+    });
+  }
+
+  // Update quantity
   item.quantity = Number(quantity);
-  await cart.save();
-  res.json({ success: true, message: "Cart item updated", data: cart });
+
+  await cart.save(); // ✅ totalAmount auto-recalculates via pre-save hook
+
+  res.status(200).json({
+    success: true,
+    message: "Cart item updated",
+    data: cart,
+  });
 });
 
 // remove a single item from cart
 // DELETE /api/carts/:userId/item/:itemId
 
 const removeItemFromCart = AsyncHandler(async (req, res) => {
-  const { userId, itemId } = req.params;
-  if (!mongoose.isValidObjectId(userId) || !mongoose.isValidObjectId(itemId)) {
-    return res
-      .status(400)
-      .json({ success: false, message: "Invalid userId or itemId" });
+  const userId = req.user.id;
+
+  const { itemId } = req.body;
+  // Validate itemId
+  if (!mongoose.isValidObjectId(itemId)) {
+    return res.status(400).json({
+      success: false,
+      message: "Invalid itemId",
+    });
   }
+
+  // Find cart by userId from token
   const cart = await Cart.findOne({ userId });
-  if (!cart)
-    return res.status(404).json({ success: false, message: "Cart not found" });
+  if (!cart) {
+    return res.status(404).json({
+      success: false,
+      message: "Cart not found",
+    });
+  }
+
+  // Find item inside cart
   const item = cart.items.id(itemId);
-  if (!item)
-    return res
-      .status(404)
-      .json({ success: false, message: "Item not found in cart" });
-  item.remove();
+  if (!item) {
+    return res.status(404).json({
+      success: false,
+      message: "Item not found in cart",
+    });
+  }
+
+  // ✅ correct way to remove subdocument in Mongoose
+  cart.items.pull({ _id: itemId });
+
   await cart.save();
-  res.json({ success: true, message: "Item removed from cart", data: cart });
+
+  res.status(200).json({
+    success: true,
+    message: "Item removed from cart",
+    data: cart,
+  });
 });
 
 // clear cart (remove all items)

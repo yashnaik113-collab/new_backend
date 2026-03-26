@@ -1,10 +1,12 @@
 const asyncHandler = require("express-async-handler");
-const User = require("../models/userModel");
+const Admin = require("../models/adminModel");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
+const crypto = require("crypto");
+const nodemailer = require("nodemailer");
 
-// desc register new user
-// route POST /api/users/register
+// desc register new admin
+// route POST /api/admin/register
 // access Public
 const registerAdminUser = asyncHandler(async (req, res) => {
   const { name, email, password } = req.body;
@@ -13,7 +15,7 @@ const registerAdminUser = asyncHandler(async (req, res) => {
       .status(400)
       .json({ message: "Please provide name, email and password" });
   }
-  const existingUser = await User.findOne({ email });
+  const existingUser = await Admin.findOne({ email });
   if (existingUser) {
     return res.status(400).json({ message: "User already exists" });
   }
@@ -21,7 +23,7 @@ const registerAdminUser = asyncHandler(async (req, res) => {
   // Hash password
   const hashedPassword = await bcrypt.hash(password, 10);
   console.log(hashedPassword);
-  const user = await User.create({
+  const user = await Admin.create({
     name,
     email,
     password: hashedPassword,
@@ -41,8 +43,8 @@ const registerAdminUser = asyncHandler(async (req, res) => {
   // res.json({ message: "register user" });
 });
 
-// desc login user
-// route POST /api/users/login
+// desc login admin
+// route POST /api/admin/login
 // access Public
 const loginAdminUser = asyncHandler(async (req, res) => {
   const { email, password } = req.body;
@@ -51,7 +53,7 @@ const loginAdminUser = asyncHandler(async (req, res) => {
       .status(400)
       .json({ message: "Please provide email and password" });
   }
-  const user = await User.findOne({ email });
+  const user = await Admin.findOne({ email });
   // compare password with hashed password
   if (user && (await bcrypt.compare(password, user.password))) {
     const accessToken = jwt.sign(
@@ -71,11 +73,113 @@ const loginAdminUser = asyncHandler(async (req, res) => {
   }
 });
 
-// desc get current user
-// route GET /api/users/current
+// desc get current admin
+// route GET /api/admin/current
 // access Private
 const currentAdminUser = asyncHandler(async (req, res) => {
   res.json(req.user);
 });
 
-module.exports = { registerAdminUser, loginAdminUser, currentAdminUser };
+// ─────────────────────────────────────────────
+// desc    Forgot password — send reset email (Admin)
+// route   POST /api/admin/forgot-password
+// access  Public
+// ─────────────────────────────────────────────
+const forgotAdminPassword = asyncHandler(async (req, res) => {
+  const { email } = req.body;
+  if (!email) {
+    return res.status(400).json({ message: "Please provide your email" });
+  }
+
+  const admin = await Admin.findOne({ email });
+  if (!admin) {
+    // Return 200 so attackers can't enumerate valid emails
+    return res.status(200).json({
+      message: "If that email exists, a reset link has been sent",
+    });
+  }
+
+  // Generate raw token and hash it for storage
+  const rawToken = crypto.randomBytes(32).toString("hex");
+  const hashedToken = crypto
+    .createHash("sha256")
+    .update(rawToken)
+    .digest("hex");
+
+  admin.resetPasswordToken = hashedToken;
+  admin.resetPasswordExpires = Date.now() + 60 * 60 * 1000; // 1 hour
+  await admin.save();
+
+  // Build reset URL (update CLIENT_URL in .env to your frontend URL)
+  const resetUrl = `${process.env.CLIENT_URL}/admin/reset-password/${rawToken}`;
+
+  const transporter = nodemailer.createTransport({
+    service: "gmail",
+    auth: {
+      user: process.env.EMAIL_USER,
+      pass: process.env.EMAIL_PASS,
+    },
+  });
+
+  await transporter.sendMail({
+    from: `"MealsOnTheWay Admin" <${process.env.EMAIL_USER}>`,
+    to: admin.email,
+    subject: "Admin Password Reset Request",
+    html: `
+      <h2>Admin Password Reset</h2>
+      <p>You requested a password reset for your admin account. Click the link below (valid for 1 hour):</p>
+      <a href="${resetUrl}" style="background:#1a1a2e;color:#fff;padding:10px 20px;border-radius:5px;text-decoration:none;">
+        Reset Admin Password
+      </a>
+      <p>If you didn't request this, please ignore this email.</p>
+    `,
+  });
+
+  res.status(200).json({ message: "If that email exists, a reset link has been sent" });
+});
+
+// ─────────────────────────────────────────────
+// desc    Reset password using token (Admin)
+// route   POST /api/admin/reset-password/:token
+// access  Public
+// ─────────────────────────────────────────────
+const resetAdminPassword = asyncHandler(async (req, res) => {
+  const { token } = req.params;
+  const { newPassword } = req.body;
+
+  if (!newPassword) {
+    return res.status(400).json({ message: "Please provide a new password" });
+  }
+
+  const hashedToken = crypto
+    .createHash("sha256")
+    .update(token)
+    .digest("hex");
+
+  const admin = await Admin.findOne({
+    resetPasswordToken: hashedToken,
+    resetPasswordExpires: { $gt: Date.now() },
+  });
+
+  if (!admin) {
+    return res
+      .status(400)
+      .json({ message: "Invalid or expired reset token" });
+  }
+
+  admin.password = await bcrypt.hash(newPassword, 10);
+  admin.resetPasswordToken = null;
+  admin.resetPasswordExpires = null;
+  await admin.save();
+
+  res.status(200).json({ message: "Password has been reset successfully" });
+});
+
+module.exports = {
+  registerAdminUser,
+  loginAdminUser,
+  currentAdminUser,
+  forgotAdminPassword,
+  resetAdminPassword,
+};
+

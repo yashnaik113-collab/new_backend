@@ -11,6 +11,7 @@ const getFoods = asyncHandler(async (req, res) => {
 // desc create new food
 // route POST /api/foods
 // access private
+
 const createFood = asyncHandler(async (req, res) => {
   const { name, description, price, category } = req.body;
 
@@ -20,15 +21,29 @@ const createFood = asyncHandler(async (req, res) => {
     });
   }
 
+  let imageData = null;
+
+  if (req.file) {
+    imageData = {
+      data: req.file.buffer.toString("base64"),
+      contentType: req.file.mimetype,
+    };
+  }
+
   const food = await Food.create({
     name,
     description,
     price,
     category,
+    kitchenId,
     user_id: req.user.id,
+    image: imageData,
   });
 
-  res.json(food);
+  res.status(201).json({
+    message: "Food created successfully",
+    food,
+  });
 });
 
 // desc get food by id

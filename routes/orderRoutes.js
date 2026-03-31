@@ -2,20 +2,32 @@ const express = require("express");
 const router = express.Router();
 const {
   createOrder,
-  getOrders,
+  getUserOrders,
+  getAdminOrders,
   getOrderById,
   updateOrderStatus,
 } = require("../controllers/orderController");
-
 const validateTokenHandler = require("../middlewares/validateTokenHandler");
+
+// All order routes require a valid JWT
 router.use(validateTokenHandler);
 
-router.route("/").post(createOrder);
+// ── User routes ────────────────────────────────────────────────────────
+// POST /api/orders/create       — place an order from cart
+router.post("/create", createOrder);
 
-router.route("/").get(getOrders);
+// GET  /api/orders/user-orders  — logged-in user's order history
+router.get("/user-orders", getUserOrders);
 
-router.route("/:id").get(getOrderById);
+// ── Admin routes ───────────────────────────────────────────────────────
+// GET  /api/orders/admin-orders — all orders (admin dashboard)
+router.get("/admin-orders", getAdminOrders);
 
-router.route("/:id/status").put(updateOrderStatus);
+// ── Shared routes ──────────────────────────────────────────────────────
+// GET  /api/orders/:id          — single order detail
+router.get("/:id", getOrderById);
+
+// PUT  /api/orders/:id/status   — update order status (admin)
+router.put("/:id/status", updateOrderStatus);
 
 module.exports = router;

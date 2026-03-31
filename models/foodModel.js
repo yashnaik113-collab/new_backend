@@ -6,7 +6,7 @@ const foodSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
-    name: {
+    foodName: {
       type: String,
       required: true,
       trim: true,
@@ -61,8 +61,19 @@ const foodSchema = new mongoose.Schema(
         price: Number,
       },
     ],
+
+    image: {
+      data: String,
+      contentType: String,
+    },
+
+    // Admin food images — stored as array of base64 strings
+    foodImages: {
+      type: [String],
+      default: [],
+    },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 module.exports = mongoose.model("Food", foodSchema);

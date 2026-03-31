@@ -1,9 +1,18 @@
 const asyncHandler = require("express-async-handler");
 const Admin = require("../models/adminModel");
+const Food = require("../models/foodModel");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
 const nodemailer = require("nodemailer");
+
+// ✅ Helper: convert a base64 data-URI string as-is (already in data:mime;base64,... format)
+// Mirrors the same approach used in userInfoController — no change to original logic.
+const processBase64Image = (base64String) => {
+  // Accept raw base64 strings that already carry the data URI prefix
+  if (!base64String || typeof base64String !== "string") return null;
+  return base64String; // stored exactly as received (data:image/...;base64,...)
+};
 
 // desc register new admin
 // route POST /api/admin/register
@@ -135,7 +144,9 @@ const forgotAdminPassword = asyncHandler(async (req, res) => {
     `,
   });
 
-  res.status(200).json({ message: "If that email exists, a reset link has been sent" });
+  res
+    .status(200)
+    .json({ message: "If that email exists, a reset link has been sent" });
 });
 
 // ─────────────────────────────────────────────
@@ -151,10 +162,7 @@ const resetAdminPassword = asyncHandler(async (req, res) => {
     return res.status(400).json({ message: "Please provide a new password" });
   }
 
-  const hashedToken = crypto
-    .createHash("sha256")
-    .update(token)
-    .digest("hex");
+  const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
 
   const admin = await Admin.findOne({
     resetPasswordToken: hashedToken,
@@ -162,9 +170,7 @@ const resetAdminPassword = asyncHandler(async (req, res) => {
   });
 
   if (!admin) {
-    return res
-      .status(400)
-      .json({ message: "Invalid or expired reset token" });
+    return res.status(400).json({ message: "Invalid or expired reset token" });
   }
 
   admin.password = await bcrypt.hash(newPassword, 10);
@@ -175,11 +181,75 @@ const resetAdminPassword = asyncHandler(async (req, res) => {
   res.status(200).json({ message: "Password has been reset successfully" });
 });
 
+// ─────────────────────────────────────────────
+// desc    Admin — Add a new food item
+// route   POST /api/admin/food
+// access  Private (admin token required)
+// ─────────────────────────────────────────────
+const addFood = asyncHandler(async (req, res) => {
+  const {
+    foodName,
+    price,
+    description,
+    category,
+    isAvailable,
+    tags,
+    rating,
+    kitchenId,
+    addons,
+    foodImages, // array of base64 strings
+  } = req.body;
+
+  // ── Validation ──────────────────────────────
+  if (!foodName || !price) {
+    return res
+      .status(400)
+      .json({ message: "Please provide at least foodName and price" });
+  }
+
+  if (foodImages && !Array.isArray(foodImages)) {
+    return res
+      .status(400)
+      .json({ message: "foodImages must be an array of base64 strings" });
+  }
+
+  // ── Process images (same logic as userInfoController) ───────────────
+  const processedImages = [];
+  if (foodImages && foodImages.length > 0) {
+    for (const base64Str of foodImages) {
+      const processed = processBase64Image(base64Str);
+      if (processed) {
+        processedImages.push(processed);
+      }
+    }
+  }
+
+  // ── Create food document ─────────────────────
+  const food = await Food.create({
+    foodName,
+    price,
+    description: description || "",
+    category: category || "other",
+    isAvailable: isAvailable !== undefined ? isAvailable : true,
+    tags: tags || [],
+    rating: rating || 4,
+    kitchenId: kitchenId || null,
+    addons: addons || [],
+    foodImages: processedImages, // ✅ array of base64 strings stored in MongoDB
+    user_id: req.user.id, // admin's ID (token payload)
+  });
+
+  res.status(201).json({
+    message: "Food item added successfully",
+    food,
+  });
+});
+
 module.exports = {
   registerAdminUser,
   loginAdminUser,
   currentAdminUser,
   forgotAdminPassword,
   resetAdminPassword,
+  addFood,
 };
-

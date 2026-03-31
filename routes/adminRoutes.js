@@ -7,7 +7,9 @@ const {
   currentAdminUser,
   forgotAdminPassword,
   resetAdminPassword,
+  addFood,
 } = require("../controllers/adminController");
+const upload = require("../middlewares/upload");
 
 const router = express.Router();
 
@@ -21,5 +23,14 @@ router.post("/reset-password/:token", resetAdminPassword);
 
 // Protected
 router.get("/current", validateTokenHandler, currentAdminUser);
+
+// Food Management (Admin only)
+// Note: foodImages are base64 strings inside JSON body — no Multer needed
+router.post(
+  "/food",
+  validateTokenHandler,
+  upload.array("foodImages", 10),
+  addFood,
+);
 
 module.exports = router;

@@ -1,5 +1,6 @@
 const mongoose = require("mongoose");
 
+// ── Sub-schema: individual order line item ───────────────────────────────────
 const orderItemSchema = new mongoose.Schema(
   {
     foodId: {
@@ -7,31 +8,39 @@ const orderItemSchema = new mongoose.Schema(
       ref: "Food",
       required: true,
     },
-    name: {
+
+    foodName: {
       type: String,
       required: true,
     },
+
     price: {
       type: Number,
       required: true,
     },
+
     quantity: {
       type: Number,
       required: true,
       min: 1,
     },
+
     addons: [
       {
-        name: String,
-        price: Number,
+        name: {
+          type: String,
+        },
+        price: {
+          type: Number,
+          default: 0,
+        },
       },
     ],
   },
-  {
-    _id: false,
-  }
+  { _id: false },
 );
 
+// ── Main order schema ─────────────────────────────────────────────────────────
 const orderSchema = new mongoose.Schema(
   {
     userId: {
@@ -39,11 +48,37 @@ const orderSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
-    items: { type: [orderItemSchema], required: true },
-    totalPrice: { type: Number, required: true, min: 0 },
-    address: { type: String, required: true },
-    phone: { type: String, default: "" },
-    status: {
+
+    items: {
+      type: [orderItemSchema],
+      required: true,
+    },
+
+    totalPrice: {
+      type: Number,
+      required: true,
+      min: 0,
+    },
+
+    address: {
+      type: String,
+      required: true,
+    },
+
+    phone: {
+      type: String,
+      default: "",
+    },
+
+    // ── Payment lifecycle ──────────────────────────────────────────────────
+    paymentStatus: {
+      type: String,
+      enum: ["pending", "success", "failed"],
+      default: "pending",
+    },
+
+    // ── Order fulfilment lifecycle ─────────────────────────────────────────
+    orderStatus: {
       type: String,
       enum: [
         "placed",
@@ -54,14 +89,13 @@ const orderSchema = new mongoose.Schema(
       ],
       default: "placed",
     },
-    paymentStatus: {
-      type: String,
-      enum: ["pending", "paid", "failed"],
-      default: "pending",
+
+    kitchenId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Kitchen",
     },
-    kitchenId: { type: mongoose.Schema.Types.ObjectId, ref: "Kitchen" },
   },
-  { timestamps: true }
+  { timestamps: true }, // adds createdAt & updatedAt automatically
 );
 
 module.exports = mongoose.model("Order", orderSchema);

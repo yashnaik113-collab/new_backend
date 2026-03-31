@@ -1,6 +1,8 @@
 const asyncHandler = require("express-async-handler");
 const Admin = require("../models/adminModel");
 const Food = require("../models/foodModel");
+const Order = require("../models/orderModel");
+const ServiceArea = require("../models/serviceAreaModel");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
@@ -245,6 +247,178 @@ const addFood = asyncHandler(async (req, res) => {
   });
 });
 
+// ─────────────────────────────────────────────
+// desc    Get all orders (admin dashboard view)
+// route   GET /api/admin/orders
+// access  Private (admin token required)
+// ─────────────────────────────────────────────
+const getAllOrdersAdmin = asyncHandler(async (req, res) => {
+  const orders = await Order.find()
+    .populate("userId", "name email phone") // populate basic user info
+    .sort({ createdAt: -1 });
+
+  res.status(200).json({
+    success: true,
+    count: orders.length,
+    data: orders,
+  });
+});
+
+// ─────────────────────────────────────────────
+// desc    Get dashboard statistics
+// route   GET /api/admin/dashboard
+// access  Private (admin token required)
+// ─────────────────────────────────────────────
+const getAdminDashboardStats = asyncHandler(async (req, res) => {
+  const [
+    totalOrders,
+    successfulPayments,
+    pendingOrders,
+    revenueData
+  ] = await Promise.all([
+    Order.countDocuments(),
+    Order.countDocuments({ paymentStatus: "success" }),
+    Order.countDocuments({ orderStatus: "placed" }), // Or any other state you consider "pending"
+    Order.aggregate([
+      { $match: { paymentStatus: "success" } },
+      {
+        $group: {
+          _id: null,
+          totalRevenue: { $sum: "$totalPrice" }
+        }
+      }
+    ])
+  ]);
+
+  const totalRevenue = revenueData.length > 0 ? revenueData[0].totalRevenue : 0;
+
+  res.status(200).json({
+    success: true,
+    data: {
+      totalOrders,
+      successfulPayments,
+      pendingOrders,
+      totalRevenue
+    }
+  });
+});
+
+// ─────────────────────────────────────────────
+// desc    Admin — Update food availability status
+// route   PATCH /api/admin/food/:id/availability
+// access  Private (admin token required)
+// ─────────────────────────────────────────────
+const updateFoodAvailability = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { isAvailable } = req.body;
+
+  if (typeof isAvailable !== "boolean") {
+    return res.status(400).json({
+      success: false,
+      message: "Please provide a valid boolean value for isAvailable",
+    });
+  }
+
+  const food = await Food.findById(id);
+
+  if (!food) {
+    return res.status(404).json({
+      success: false,
+      message: "Food item not found",
+    });
+  }
+
+  food.isAvailable = isAvailable;
+  await food.save();
+
+  res.status(200).json({
+    success: true,
+    message: "Food availability updated successfully",
+    data: food,
+  });
+});
+
+// ─────────────────────────────────────────────
+// Pincode Management Logic (ServiceArea Schema)
+// ─────────────────────────────────────────────
+
+// route   POST /api/admin/pincode/add
+const addPincode = asyncHandler(async (req, res) => {
+  const { pincode, areaName } = req.body;
+
+  if (!pincode || !areaName) {
+    return res.status(400).json({ message: "Please provide pincode and areaName" });
+  }
+
+  const existing = await ServiceArea.findOne({ pincode });
+  if (existing) {
+    return res.status(400).json({ message: "Pincode already exists" });
+  }
+
+  const serviceArea = await ServiceArea.create({
+    pincode,
+    areaName,
+  });
+
+  res.status(201).json({
+    success: true,
+    message: "Pincode added successfully",
+    data: serviceArea,
+  });
+});
+
+// route   GET /api/admin/pincode/list
+const listPincodes = asyncHandler(async (req, res) => {
+  const pincodes = await ServiceArea.find().sort({ createdAt: -1 });
+  res.status(200).json({
+    success: true,
+    count: pincodes.length,
+    data: pincodes,
+  });
+});
+
+// route   PATCH /api/admin/pincode/:id/status
+const updatePincodeStatus = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { isActive } = req.body;
+
+  if (typeof isActive !== "boolean") {
+    return res.status(400).json({ message: "isActive must be a boolean" });
+  }
+
+  const serviceArea = await ServiceArea.findByIdAndUpdate(
+    id,
+    { isActive },
+    { new: true }
+  );
+
+  if (!serviceArea) {
+    return res.status(404).json({ message: "Pincode not found" });
+  }
+
+  res.status(200).json({
+    success: true,
+    message: "Pincode status updated",
+    data: serviceArea,
+  });
+});
+
+// route   DELETE /api/admin/pincode/:id
+const deletePincode = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  const serviceArea = await ServiceArea.findByIdAndDelete(id);
+
+  if (!serviceArea) {
+    return res.status(404).json({ message: "Pincode not found" });
+  }
+
+  res.status(200).json({
+    success: true,
+    message: "Pincode removed successfully",
+  });
+});
+
 module.exports = {
   registerAdminUser,
   loginAdminUser,
@@ -252,4 +426,11 @@ module.exports = {
   forgotAdminPassword,
   resetAdminPassword,
   addFood,
+  getAllOrdersAdmin,
+  getAdminDashboardStats,
+  updateFoodAvailability,
+  addPincode,
+  listPincodes,
+  updatePincodeStatus,
+  deletePincode,
 };

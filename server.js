@@ -19,6 +19,7 @@ app.use("/api/orders", require("./routes/orderRoutes"));
 app.use("/api/kitchens", require("./routes/kitchenRoutes"));
 app.use("/api/chefs", require("./routes/chefAuthRoutes"));
 app.use("/api/userinfo", require("./routes/userInfoRoutes"));
+app.use("/api/service", require("./routes/serviceRoutes"));
 app.use("/api/images", imageRoutes);
 
 app.get("/", (req, res) =>

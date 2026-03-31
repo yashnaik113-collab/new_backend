@@ -6,6 +6,7 @@ const {
   getAdminOrders,
   getOrderById,
   updateOrderStatus,
+  markPaymentSuccess,
 } = require("../controllers/orderController");
 const validateTokenHandler = require("../middlewares/validateTokenHandler");
 
@@ -16,11 +17,15 @@ router.use(validateTokenHandler);
 // POST /api/orders/create       — place an order from cart
 router.post("/create", createOrder);
 
+// PUT  /api/orders/payment-success/:orderId — update payment to true / success
+router.put("/payment-success/:orderId", markPaymentSuccess);
+
 // GET  /api/orders/user-orders  — logged-in user's order history
 router.get("/user-orders", getUserOrders);
 
 // ── Admin routes ───────────────────────────────────────────────────────
 // GET  /api/orders/admin-orders — all orders (admin dashboard)
+// Keep for backwards compatibility, but actual admin endpoints are in adminRoutes
 router.get("/admin-orders", getAdminOrders);
 
 // ── Shared routes ──────────────────────────────────────────────────────

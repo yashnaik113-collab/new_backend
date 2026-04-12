@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const chefAuthMiddleware = require("../businessmiddleware/chefAuthMiddleware");
+const chefAuthMiddleware = require("../middlewares/chefAuthMiddleware");
 const {
   getChefFoods,
   createChefFood,

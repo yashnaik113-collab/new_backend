@@ -1,3 +1,4 @@
+// const dotenv = require("dotenv").config();
 const asyncHandler = require("express-async-handler");
 const User = require("../models/userModel");
 const bcrypt = require("bcrypt");
@@ -65,7 +66,7 @@ const loginUser = asyncHandler(async (req, res) => {
         },
       },
       process.env.ACCESS_TOKEN_SECRET,
-      { expiresIn: "1d" }
+      { expiresIn: "1d" },
     );
     res.status(200).json({ accessToken });
   } else {
@@ -136,7 +137,9 @@ const forgotPassword = asyncHandler(async (req, res) => {
     `,
   });
 
-  res.status(200).json({ message: "If that email exists, a reset link has been sent" });
+  res
+    .status(200)
+    .json({ message: "If that email exists, a reset link has been sent" });
 });
 
 // ─────────────────────────────────────────────
@@ -153,10 +156,7 @@ const resetPassword = asyncHandler(async (req, res) => {
   }
 
   // Hash the incoming raw token to compare with stored hash
-  const hashedToken = crypto
-    .createHash("sha256")
-    .update(token)
-    .digest("hex");
+  const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
 
   const user = await User.findOne({
     resetPasswordToken: hashedToken,
@@ -164,9 +164,7 @@ const resetPassword = asyncHandler(async (req, res) => {
   });
 
   if (!user) {
-    return res
-      .status(400)
-      .json({ message: "Invalid or expired reset token" });
+    return res.status(400).json({ message: "Invalid or expired reset token" });
   }
 
   user.password = await bcrypt.hash(newPassword, 10);
@@ -177,5 +175,10 @@ const resetPassword = asyncHandler(async (req, res) => {
   res.status(200).json({ message: "Password has been reset successfully" });
 });
 
-module.exports = { registerUser, loginUser, currentUser, forgotPassword, resetPassword };
-
+module.exports = {
+  registerUser,
+  loginUser,
+  currentUser,
+  forgotPassword,
+  resetPassword,
+};

@@ -1,11 +1,13 @@
 const express = require("express");
+const cors = require("cors");
 const dotenv = require("dotenv").config();
 const connectDB = require("./config/db");
 const authmiddleware = require("./middlewares/authMiddleware");
 const imageRoutes = require("./routes/imageroutes");
 // const orderRoutes = require("./routes/orderRoutes");
-// app.use(cors());
+
 const app = express();
+app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 connectDB();
@@ -18,9 +20,11 @@ app.use("/api/admin", require("./routes/adminRoutes"));
 app.use("/api/orders", require("./routes/orderRoutes"));
 app.use("/api/kitchens", require("./routes/kitchenRoutes"));
 app.use("/api/chefs", require("./routes/chefAuthRoutes"));
+app.use("/api/cheffoods", require("./routes/chefFoodRoutes"));
 app.use("/api/userinfo", require("./routes/userInfoRoutes"));
 app.use("/api/service", require("./routes/serviceRoutes"));
 app.use("/api/images", imageRoutes);
+app.use("/api/payments", require("./routes/paymentRoutes"));
 
 app.get("/", (req, res) =>
   res.json({ success: true, message: "API is running" }),

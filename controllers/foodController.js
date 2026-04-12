@@ -13,31 +13,66 @@ const getFoods = asyncHandler(async (req, res) => {
 // access private
 
 const createFood = asyncHandler(async (req, res) => {
-  const { name, description, price, category } = req.body;
+  const {
+    name,
+    price,
+    category,
+    description,
+    isAvailable,
+    tags,
+    addons,
+    kitchenId,
+  } = req.body;
 
-  if (!name || !description || !price || !category) {
+  // Required fields
+  if (!name || !price || !category) {
     return res.status(400).json({
-      message: "Please provide name, description, price and category",
+      message: "name, price and category are required",
     });
   }
 
-  let imageData = null;
+  // Images are required — multer puts them in req.files
+  if (!req.files || req.files.length === 0) {
+    return res.status(400).json({
+      message: "At least one image is required",
+    });
+  }
 
-  if (req.file) {
-    imageData = {
-      data: req.file.buffer.toString("base64"),
-      contentType: req.file.mimetype,
-    };
+  // Convert each uploaded file buffer → base64 string with data URI prefix
+  const foodImages = req.files.map(
+    (file) => `data:${file.mimetype};base64,${file.buffer.toString("base64")}`,
+  );
+
+  // Normalize addons: accept ["chilli"] or [{name, price}]
+  let normalizedAddons = [];
+  if (addons) {
+    const parsed = typeof addons === "string" ? JSON.parse(addons) : addons;
+    if (Array.isArray(parsed)) {
+      normalizedAddons = parsed.map((addon) =>
+        typeof addon === "string"
+          ? { name: addon, price: 0 }
+          : { name: addon.name, price: addon.price ?? 0 },
+      );
+    }
+  }
+
+  // tags may come as a JSON string from FormData
+  let parsedTags = [];
+  if (tags) {
+    parsedTags = typeof tags === "string" ? JSON.parse(tags) : tags;
   }
 
   const food = await Food.create({
-    name,
-    description,
+    foodName: name,
     price,
     category,
-    kitchenId,
+    description: description || "",
+    isAvailable: isAvailable !== undefined ? isAvailable : true,
+    tags: parsedTags,
+    addons: normalizedAddons,
+    foodImages,
+    kitchenId: kitchenId || null,
     user_id: req.user.id,
-    image: imageData,
   });
 
   res.status(201).json({
@@ -62,8 +97,9 @@ const getFoodById = asyncHandler(async (req, res) => {
 // access private
 const updateFood = asyncHandler(async (req, res) => {
   const food = await Food.findById(req.params.id);
+
   if (!food) {
-    return res.status(404).json("Food not found");
+    return res.status(404).json({ message: "Food not found" });
   }
 
   if (!food.user_id) {
@@ -72,15 +108,60 @@ const updateFood = asyncHandler(async (req, res) => {
 
   if (food.user_id.toString() !== req.user.id) {
     return res.status(403).json({
-      message: "User not have permission to update other user things",
+      message: "You do not have permission to update this item",
     });
   }
 
-  const updatedFood = await Food.findByIdAndUpdate(req.params.id, req.body, {
+  const {
+    name,
+    price,
+    category,
+    description,
+    isAvailable,
+    tags,
+    addons,
+    kitchenId,
+  } = req.body;
+
+  const updateData = {};
+
+  if (name !== undefined) updateData.foodName = name;
+  if (price !== undefined) updateData.price = price;
+  if (category !== undefined) updateData.category = category;
+  if (description !== undefined) updateData.description = description;
+  if (isAvailable !== undefined) updateData.isAvailable = isAvailable;
+  if (kitchenId !== undefined) updateData.kitchenId = kitchenId;
+
+  if (tags !== undefined) {
+    updateData.tags = typeof tags === "string" ? JSON.parse(tags) : tags;
+  }
+
+  if (addons !== undefined) {
+    const parsed = typeof addons === "string" ? JSON.parse(addons) : addons;
+    updateData.addons = parsed.map((addon) =>
+      typeof addon === "string"
+        ? { name: addon, price: 0 }
+        : { name: addon.name, price: addon.price ?? 0 },
+    );
+  }
+
+  // If admin uploads new images, replace existing ones
+  if (req.files && req.files.length > 0) {
+    updateData.foodImages = req.files.map(
+      (file) =>
+        `data:${file.mimetype};base64,${file.buffer.toString("base64")}`,
+    );
+  }
+
+  const updatedFood = await Food.findByIdAndUpdate(req.params.id, updateData, {
     new: true,
+    runValidators: true,
   });
 
-  res.json(updatedFood);
+  res.json({
+    message: "Food updated successfully",
+    food: updatedFood,
+  });
 });
 
 // desc delete food

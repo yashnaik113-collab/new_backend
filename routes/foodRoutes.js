@@ -10,6 +10,7 @@ const {
 const validateTokenHandler = require("../middlewares/validateTokenHandler");
 const upload = require("../middlewares/upload");
 const multer = require("multer");
+const { uploadImages } = require("../middlewares/newUpload");
 const storage = multer.memoryStorage();
 // const upload = multer({ storage });
 
@@ -17,13 +18,11 @@ const storage = multer.memoryStorage();
 
 router.route("/").get(getFoods);
 
-router
-  .route("/")
-  .post(validateTokenHandler, upload.single("image"), createFood);
+router.route("/").post(validateTokenHandler, uploadImages, createFood);
 
 router.route("/:id").get(getFoodById);
 
-router.route("/:id").put(validateTokenHandler, updateFood);
+router.route("/:id").put(validateTokenHandler, uploadImages, updateFood);
 
 router.route("/:id").delete(validateTokenHandler, deleteFood);
 

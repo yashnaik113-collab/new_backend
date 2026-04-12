@@ -6,6 +6,7 @@ const {
   getFoodById,
   updateFood,
   deleteFood,
+  getFoodImage,
 } = require("../controllers/foodController");
 const validateTokenHandler = require("../middlewares/validateTokenHandler");
 const upload = require("../middlewares/upload");
@@ -15,6 +16,7 @@ const storage = multer.memoryStorage();
 // const upload = multer({ storage });
 
 // router.use(validateTokenHandler);
+router.get("/:id/images/:index", getFoodImage);
 
 router.route("/").get(getFoods);
 

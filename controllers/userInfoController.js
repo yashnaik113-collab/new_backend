@@ -10,6 +10,7 @@ const User = require("../models/userModel"); // your auth user model
 // ─────────────────────────────────────────────
 const getUserInfo = asyncHandler(async (req, res) => {
   const userInfo = await UserInfo.findOne({ user_id: req.user.id });
+  console.log("Decoded user:", req.user);
 
   if (!userInfo) {
     return res.status(404).json({ message: "User info not found" });

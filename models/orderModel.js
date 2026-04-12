@@ -77,6 +77,18 @@ const orderSchema = new mongoose.Schema(
       default: "pending",
     },
 
+    razorpayOrderId: {
+      type: String,
+    },
+
+    razorpayPaymentId: {
+      type: String,
+    },
+
+    razorpaySignature: {
+      type: String,
+    },
+
     // ── Order fulfilment lifecycle ─────────────────────────────────────────
     orderStatus: {
       type: String,

@@ -5,12 +5,14 @@ const {
   currentUser,
   forgotPassword,
   resetPassword,
+  listUsers,
 } = require("../controllers/userController");
 const validateTokenHandler = require("../middlewares/validateTokenHandler");
 
 const router = express.Router();
 
 // Auth
+router.get("/", listUsers);
 router.post("/register", registerUser);
 router.post("/login", loginUser);
 

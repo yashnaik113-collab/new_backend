@@ -60,7 +60,7 @@ const loginUser = asyncHandler(async (req, res) => {
     const accessToken = jwt.sign(
       {
         user: {
-          username: user.username,
+          name: user.name,
           email: user.email,
           id: user._id,
         },
@@ -68,7 +68,15 @@ const loginUser = asyncHandler(async (req, res) => {
       process.env.ACCESS_TOKEN_SECRET,
       { expiresIn: "1d" },
     );
-    res.status(200).json({ accessToken });
+    res.status(200).json({
+      accessToken,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        createdAt: user.createdAt,
+      },
+    });
   } else {
     res.status(401).json({ message: "Invalid email or password" });
   }
@@ -175,10 +183,25 @@ const resetPassword = asyncHandler(async (req, res) => {
   res.status(200).json({ message: "Password has been reset successfully" });
 });
 
+// desc get registered users
+// route GET /api/users
+// access Public
+const listUsers = asyncHandler(async (_req, res) => {
+  const users = await User.find({}, "name email createdAt updatedAt role")
+    .sort({ createdAt: -1 });
+
+  res.status(200).json({
+    success: true,
+    count: users.length,
+    users,
+  });
+});
+
 module.exports = {
   registerUser,
   loginUser,
   currentUser,
   forgotPassword,
   resetPassword,
+  listUsers,
 };
